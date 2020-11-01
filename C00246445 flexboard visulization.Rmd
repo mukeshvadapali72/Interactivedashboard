@@ -1,0 +1,431 @@
+
+
+---
+title: "HR- Analytics"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    social: [ "twitter", "facebook", "menu"]
+    source_code: embed
+runtime: shiny
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(rsconnect)
+#rsconnect::deployApp('mukeshvadapalli.shinyapps.io/HRAnalytics/')
+library(flexdashboard)
+library(shinythemes)
+library(shiny)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+library(forcats)
+library(highcharter)
+library(viridisLite)
+library(ggcorrplot)
+library(corrplot)
+library(gridExtra)
+library(grid)
+```
+
+
+```{r}
+hranalytics <- read.csv('hranalytics.csv',head = TRUE,sep=",")
+```
+
+
+Dataset {data-icon="fas fa-database"}
+=============================================================================
+
+column {.sidebar}
+----------------------------------------------------------------------------
+**HR- Analytics**
+
+Dataset consists of 1471 profiles of employees of a large company collected through an feedback survey. It involves different reasons that causes the attrition in the company. Attrition refers to the loss of staff by voluntary or involuntary reasons.
+ 
+**What are the different factors that causes the attrition in the company.**
+
+**Descibtion of important Variables in dataset:**
+
+---------------------------------------------------------
+- Attrition  Loss of staff from the company
+- Department - Working departments in the company
+- EducationField - Staff education background
+- EnvironmentStatisfication - Statisfaction of working environment from 1 to 4
+- JobStatisfaction - Statisfaction from job 1 to 4
+- JobInvolvement - How seriously employ works in an organization score 1 to 4
+- JobLevel - Position/ level in an organization
+- RelationshipSatisfaction  - relationships with other working staff score 1 to 4
+- WorkLifeBalance  - Balance between work and life 
+
+
+```{r}
+#hranalytics<-rename(hranalytics, c("ï..Age" = "ï..ï..Age"))
+```
+
+
+Row {data-height=550}
+-----------------------------------------------------------------------
+
+```{r}
+DT::datatable(hranalytics,
+              options = list(
+                  pï..AgeLength = 25
+              ))
+```
+
+Demographics
+============================================================================
+ <!-- {data-icon="fas fa-chart-bar"} -->
+<!-- Demographics has ï..Age, Gender, MaritalStatus, Education and EducationField features -->
+
+
+Row {data-height=450}
+--------------------------------------------------------------------------
+
+### Total number(percentï..Age) of male and female in company
+
+```{r}
+colors <- c('rgba(25, 181, 254, 1)', 'rgba(58, 83, 155, 1)')
+mf<-hranalytics %>% 
+  group_by(Gender) %>%
+  summarize(no_of_employees=n(),avgï..Age=round(mean(ï..Age), 3))
+fig <- plot_ly(mf, labels = ~Gender, values = ~no_of_employees, type = 'pie',
+        textposition = 'inside',
+        textinfo = 'label+percent',
+        insidetextfont = list(color = '#FFFFFF'),
+        hoverinfo = 'text',text = ~paste(Gender,avgï..Age),
+        marker = list(colors = colors,
+                      line = list(color = '#FFFFFF', width = 1)),
+        showlegend = FALSE)
+fig <- fig %>% layout(title = '% of Male and Female in the company',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig
+
+
+```
+
+<!-- Company has 60% of Male Staff and 40% of Female staff -->
+ <!-- Averï..Age ï..Age of male is 36.653 and female is 37.33 -->
+
+### AverAge salary by Gender
+
+```{r}
+genin <- hranalytics %>% select(Gender, MonthlyIncome) %>% group_by(Gender) %>% summarise(avg_income=round(mean(MonthlyIncome), 2)) %>%
+ggplot(aes(x=Gender, y=avg_income)) + geom_bar(stat="identity", fill="#7abfff", width=0.5) + 
+geom_text(aes(x=Gender, y=0.01, label= paste0("$ ", avg_income)),
+            hjust=-2, vjust=0, size=3, 
+            colour="black", fontface="bold",
+         angle=360) + labs(title="Averï..Age Salary by Gender", x="Gender",y="Salary") + coord_flip() + 
+theme_classic() + theme(plot.title=element_text(size=14, hjust=0.5))
+genin
+```
+
+<!-- *Averï..Age income of female (6380.51)is higher than male(6686.57) in the company. -->
+
+Row {data-height=400, .tabset}
+--------------------------------------------------------------------------
+
+
+### Employees from different Education Field
+
+```{r}
+Edufield<-hranalytics %>% 
+  group_by(EducationField) %>%
+  summarize(no_of_employees=n())
+fig <- Edufield %>% plot_ly(labels = ~EducationField, values = ~no_of_employees)
+fig <- fig %>% add_pie(hole = 0.5)
+fig <- fig %>% layout(title = "Staff from different Education Field",  showlegend = T,
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig
+
+```
+
+<!-- * Company has 41.2% of total staffs from Life Sciences -->
+<!-- * 31.6% are from the Medical background -->
+<!-- * Lowest employees are from HR background -->
+
+
+
+### Employees from different Educational Level
+```{r}
+hranalytics$Educational_Levels <-  ifelse(hranalytics$Education == 1, "Without College D.",
+                            ifelse(hranalytics$Education == 2 , "Junior College D.",
+                                  ifelse(hranalytics$Education == 3, "Bachelors D.",
+                                        ifelse(hranalytics$Education == 4, "Masters D.", "Phd D."))))
+hchart(hranalytics$Educational_Levels, colorByPoint = TRUE, name = "Educational_level")
+```
+<!-- * Educational level 1 is specified as 'without college' degree. -->
+<!-- * Level 2 as with Junior college degree. -->
+<!-- * Level 3 as Bachelors degree -->
+<!-- * Level 4 as Phd degree. -->
+<!-- * Company has large number of staff with Bachelor's level and less number from phd level. -->
+
+
+ï..Age Income Educationlevel {data-icon="fas fa-users"}
+================================================================================
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+sliderInput(inputId = "ï..Agegroup",
+            label = "ï..Age",
+            min = min(hranalytics$ï..Age),
+            max = max(hranalytics$ï..Age),
+            value = c(20,50),
+            step = 1)
+```
+
+```{r}
+
+
+sliderInput(inputId = "Month",
+            label = "MonthlyIncome",
+            min = min(hranalytics$MonthlyIncome),
+            max = max(hranalytics$MonthlyIncome),
+            value = c(1009,5000),
+            step = 1)
+```
+```{r}
+checkboxGroupInput(inputId = "radio_input", 
+             label = "Choose Education Level", 
+             choices = unique(hranalytics$Educational_Levels), 
+             selected = c("Masters D.","Bachelors D."))
+```
+
+-------------------------------------------------------------------------
+
+Row {data-height=850}
+-----------------------------------------------------------------------
+
+
+### Monthly income according to ï..Age and Education level
+
+```{r}
+Montlydf <- reactive({
+  hranalytics %>%
+    filter(MonthlyIncome %>% between(left = input$Month[1],right = input$Month[2])) %>%
+    filter(ï..Age %>% between(left = input$ï..Agegroup[1],right = input$ï..Agegroup[2]))%>%
+    filter(Educational_Levels == input$radio_input)
+})
+```
+
+```{r}
+renderPlotly({
+fig <- plot_ly(data = Montlydf(), x = ~ï..Age, y = ~MonthlyIncome, type = 'scatter',
+  mode = 'markers', symbol = ~factor(Educational_Levels), symbols = c('circle','x'), marker = list(size = 10))
+
+fig
+})
+
+```
+
+<!-- * As seen from the above graph ï..Age is proportional to MonthlyIncome -->
+<!-- * Older ï..Age groups are experienced soo there is increase in income, but it also depends on the educational level.  -->
+<!-- * Educational level from 1 to 5 are spread through out the graph means educational degree is not much important as skillsets are more important. -->
+
+
+
+
+Job roles
+===========================================================================
+<!-- {data-icon="fas fa-briefcase"} -->
+
+Row {data-height=400} 
+--------------------------------------------------------------------------
+
+### Number of employees in a particular job roles
+<!-- No of Employees in a particular Job Roles. -->
+
+```{r}
+hranalytics %>%
+  group_by(JobRole) %>%
+  summarize(no_of_employees=n()) %>%
+hchart(type = "treemap",col = viridis(9),
+       hcaes(x = JobRole, value= no_of_employees, color = no_of_employees)) %>% 
+  hc_title(text = "No of Employees in each job role")
+```
+
+
+Row {data-height=400}
+--------------------------------------------------------------------------
+
+### Median salary according to job roles
+<!-- Graphs shows the median salary of each Jobroles in the company. -->
+
+```{r}
+# Median Salary according to job roles
+jobrsalary <- hranalytics %>% select(JobRole, MonthlyIncome) %>% group_by(JobRole) %>% summarize(med=median(MonthlyIncome))
+
+fig <- plot_ly(jobrsalary, x = ~JobRole, y = ~med, type = 'bar',
+        marker = list(color = c('rgba(30, 139, 195, 1)', 'rgba(0, 181, 204, 1)',
+                                'rgba(44, 130, 201, 1)', 'rgba(1, 50, 67, 1)',
+                                'rgba(25, 181, 254, 1)','rgba(89, 171, 227, 1)','rgba(82, 179, 217, 1)','rgba(34, 167, 240, 1)','rgba(52, 152, 219, 1)')))
+fig <- fig %>% layout(title = "Median Salary of each Job Profile",
+         xaxis = list(title = ""),
+         yaxis = list(title = "Median Monthly Income"))
+
+fig
+```
+
+ <!-- Manï..Agers and Research Directors have the highest salary on averï..Age. -->
+ <!-- Laboratory Technician and Sales Representative have the lowest salary on averï..Age -->
+ 
+### No of people working in each department by gender.
+
+```{r}
+# # How many people work in each department by gender
+depgen <- hranalytics %>% group_by(Department, Gender) %>% summarise(No_of_Employees=n()) %>%
+ggplot(aes(x=reorder(Department, -No_of_Employees), y=No_of_Employees, fill=Gender)) + geom_bar(stat="identity", position="dodge") + theme_minimal() + 
+theme(axis.text.x = element_text(angle = 90), plot.title=element_text(hjust=0.5)) + scale_fill_manual(values=c("light blue", "Dodger Blue")) + 
+labs(title="Number of Employees by Department",x="Department", y="Number of employees")
+
+ggplotly(depgen)
+```
+<!-- * Research department has highest number of staff working of which males are more than 550 and females below 400. -->
+<!-- * Human resources department has very low number of staff working. -->
+
+
+
+Important Attrition Factor {data-icon="fa-user-times"}
+==========================================================================
+
+
+Row {data-width=500}
+--------------------------------------------------------------------------
+
+
+
+
+### Job roles and level of satisfaction with Attrition rate
+
+
+```{r}
+env.attr <- hranalytics %>% select(JobSatisfaction, JobRole, Attrition) %>% group_by(JobRole, Attrition) %>%
+summarize(avgsat=mean(JobSatisfaction))
+
+gdg <-ggplot(env.attr, aes(x=JobRole, y=avgsat)) + geom_line(aes(group=Attrition), color="#58ACFA", linetype="dashed") + 
+geom_point(aes(color=Attrition), size=3)  + theme(axis.text.x=element_text(angle=90),panel.background = element_rect(fill = "white", colour = "grey50"),axis.line = element_line(size = 1, colour = "#000082")) +
+labs(title="Job Satisfaction of each JobRole", y="Averï..Age Job Satisfaction", x="Job Position") 
+ggplotly(gdg)
+```
+
+<!-- * Employees who rated high job satisfaction did not quit their job means no attrition. -->
+<!-- * Healthcare Representatives rated high for job satisfaction but quit their job too . -->
+
+
+### Attrition Rate of Department according to Averï..Age Income
+
+```{r}
+avg.income <- hranalytics %>% select(Department, MonthlyIncome, Attrition) %>% group_by(Attrition, Department) %>%
+summarize(avg.inc=mean(MonthlyIncome)) %>%
+ggplot(aes(x=reorder(Department, avg.inc), y=avg.inc, fill=Attrition)) + geom_bar(stat="identity", position="dodge") + facet_wrap(~Attrition) + 
+theme_minimal() + theme(axis.text.x = element_text(angle = 90), 
+                        plot.title=element_text(hjust=0.5),
+                        panel.background = element_rect(fill = "white", colour = "grey50")) + 
+scale_fill_manual(values=c("lightblue", "darkblue")) + 
+labs(y="Averï..Age Income", x="Department", title="Averï..Age Income by Department \n and Attrition Status")
+
+
+ggplotly(avg.income)
+```
+
+<!-- * There is a huge difference between averï..Age income of employees who quit and who didn't according to the department. -->
+<!-- * Income plays an crucial role in attrition rate of the company -->
+
+Row {data-width=550, .tabset}
+--------------------------------------------------------------------------
+
+### Attrition rate compared to total working year in this company and other company
+```{r}
+numworkyear <- hranalytics %>% filter(NumCompaniesWorked == 1) %>% 
+  ggplot(aes(TotalWorkingYears, fill = Attrition)) + geom_density(alpha = 0.5) +
+  ggtitle("Worked Only for this company") +  theme(plot.title = element_text(hjust = 0.5),
+              panel.background = element_rect(fill = "white", colour = "darkblue"))
+ggplotly(numworkyear)
+
+```
+
+<!-- The Attrition rate is highest in first 5 years of the employees who worked for this organization. -->
+
+
+### Attrition due to overtime
+
+```{r}
+overtime_percent <- hranalytics %>% select(OverTime, Attrition) %>% filter(Attrition == "Yes") %>% group_by(Attrition, OverTime) %>%
+summarize(n=n()) %>% mutate(pct=round(prop.table(n),2) * 100)
+
+```
+
+```{r}
+colors <- c('#add8e6', 'rgba(58, 83, 155, 1)')
+fig <- plot_ly(overtime_percent, labels = ~OverTime, values = ~n, type = 'pie',
+        textposition = 'inside',
+        textinfo = 'label+percent',
+        insidetextfont = list(color = '#FFFFFF'),
+        hoverinfo = 'text',text = ~paste(OverTime,n),
+        marker = list(colors = colors,
+                      line = list(color = '#FFFFFF', width = 1)),
+        showlegend = TRUE)
+fig <- fig %>% layout(title = '% of Attrition of staff due to OverTime',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig
+```
+
+<!-- * 53.6% of staff left the job due to OverTime -->
+<!-- * Even due to working over time 46.4% of staff did not quit their job. -->
+<!-- This shows that working overtime leads to attrition in the company. -->
+
+
+
+### Attrition due to Distance from Home and Worklife Balance
+
+```{r}
+workdis<-ggplot(hranalytics, 
+        aes(x= WorkLifeBalance, y=DistanceFromHome, group = WorkLifeBalance, fill = WorkLifeBalance)) + 
+        geom_boxplot(alpha=0.7) + 
+        theme(legend.position="none") + 
+        facet_wrap(~ Attrition) + 
+        ggtitle("Attrition due to Distance from Home and WorkLife Balance") + 
+        theme(plot.title = element_text(hjust = 0.5),
+              panel.background = element_rect(fill = "white", colour = "darkblue"))
+ggplotly(workdis)
+```
+
+<!-- Employees who rated their worklife balance low were travelling from a farther away compared to those who rated their work-life balance as high. -->
+<!-- Employees who quit their job were travelling from longer distance as compared to people still working. -->
+<!-- Distance from home is one of the important factor for attrition. -->
+
+
+Row {data-height=300}
+--------------------------------------------------------------------------
+
+### **Conclusion**
+
+
+- **Attrition is mainly influenced by Averï..Age Income, working overtime, Distance from home, Job satisfaction.**
+- **Employees who rated high satisfaction score didn't quit their job**
+- **Employees having low averï..Age income in same department has quit their job compared to employees having high averï..Age income.**
+- **The Attrition rate is highest in first 5 years of the employees who worked for this organization.**
+- **As working years goes on increasing there is an decrease in Attrition**
+- **About 53.6%, out of total employees who quit their job were due to working overtime**
+- **Employees who rated their worklife balance low were travelling from a farther away compared to those who rated their work-life balance as high.**
+- **Employees who quit their job were travelling from longer distance as compared to people still working.**
+
+### **Submitted by**
+
+- **Mukesh M Vadapalli**
+- **C00246445**
+- **Msc DataScience**
+- **Prof -Dr Agnes Maciocha**
